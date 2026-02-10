@@ -64,3 +64,40 @@ class UploadResponse(BaseModel):
     filename: str
     total_scenes: int
     total_characters: int
+
+
+# ------------------------------------------------------------------
+# Audio / TTS schemas
+# ------------------------------------------------------------------
+
+
+class GenerateAudioResponse(BaseModel):
+    script_id: int
+    total_dialogues: int
+    generated_count: int
+    status: str
+
+
+class AudioStatusResponse(BaseModel):
+    script_id: int
+    total_dialogues: int
+    with_audio: int
+    status: str  # "pending" | "in_progress" | "completed"
+
+
+class PlaylistItem(BaseModel):
+    element_id: int
+    scene_id: int
+    scene_number: int
+    order_index: int
+    type: str
+    character_name: str | None
+    text: str
+    audio_url: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class PlaylistResponse(BaseModel):
+    script_id: int
+    items: list[PlaylistItem]

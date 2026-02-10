@@ -1,14 +1,33 @@
 import io
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from config import settings
 from database import get_db
 from models.script import Character, Scene, Script, ScriptElement
-from schemas.script import ScriptDetailResponse, UploadResponse
+from schemas.script import (
+    AudioStatusResponse,
+    GenerateAudioResponse,
+    PlaylistItem,
+    PlaylistResponse,
+    ScriptDetailResponse,
+    UploadResponse,
+)
+from services.mood_analyzer import MoodAnalyzer
 from services.pdf_parser import parse_script_from_pdf
+from services.tts_service import ChatterboxService, TTSError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# ------------------------------------------------------------------
+# Existing endpoints
+# ------------------------------------------------------------------
 
 
 @router.post("/scripts/upload", response_model=UploadResponse)
@@ -82,3 +101,184 @@ async def get_script(script_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Drehbuch nicht gefunden.")
 
     return script
+
+
+# ------------------------------------------------------------------
+# Phase 3: Audio / TTS endpoints
+# ------------------------------------------------------------------
+
+
+def _get_script_or_404(script_id: int, db: Session) -> Script:
+    script = db.query(Script).filter(Script.id == script_id).first()
+    if not script:
+        raise HTTPException(status_code=404, detail="Drehbuch nicht gefunden.")
+    return script
+
+
+@router.post(
+    "/scripts/{script_id}/generate-audio",
+    response_model=GenerateAudioResponse,
+)
+async def generate_audio(script_id: int, db: Session = Depends(get_db)):
+    """Generate TTS audio for every DIALOGUE element in a script.
+
+    NOTE: This runs synchronously for the MVP.
+    TODO: Replace with a background job (Celery / RQ / ARQ) for production.
+    """
+    script = _get_script_or_404(script_id, db)
+
+    tts = ChatterboxService()
+    mood_analyzer = MoodAnalyzer()
+
+    # --- 1. Assign voices if not yet done ---
+    characters = db.query(Character).filter(Character.script_id == script_id).all()
+    unassigned = [c for c in characters if not c.voice_id]
+    if unassigned:
+        char_names = [c.name for c in characters]
+        voice_map = tts.assign_voices(char_names)
+        for char in characters:
+            char.voice_id = voice_map.get(char.name, "male_1")
+        db.flush()
+
+    # Build quick lookup: character name → voice_id
+    voice_lookup: dict[str, str] = {c.name: c.voice_id or "male_1" for c in characters}
+
+    # --- 2. Iterate over all scenes / elements ---
+    generated_count = 0
+    total_dialogues = 0
+
+    for scene in script.scenes:
+        prev_parenthetical: str | None = None
+        for element in scene.elements:
+            if element.element_type == "PARENTHETICAL":
+                prev_parenthetical = element.text
+                continue
+
+            if element.element_type != "DIALOGUE":
+                prev_parenthetical = None
+                continue
+
+            total_dialogues += 1
+
+            # Skip if audio already exists
+            if element.audio_file_path:
+                prev_parenthetical = None
+                continue
+
+            # Mood analysis
+            if not element.mood:
+                element.mood = mood_analyzer.analyze(element, prev_parenthetical)
+
+            exaggeration = mood_analyzer.map_mood_to_exaggeration(element.mood)
+            voice = voice_lookup.get(element.character_name or "", "male_1")
+
+            # Generate audio
+            try:
+                audio_data = tts.generate_speech(
+                    text=element.text,
+                    voice=voice,
+                    language="de",
+                    exaggeration=exaggeration,
+                )
+            except TTSError as exc:
+                logger.error("TTS failed for element %s: %s", element.id, exc)
+                prev_parenthetical = None
+                continue
+
+            # Save to filesystem
+            rel_path = tts.save_audio(
+                audio_data=audio_data,
+                script_id=script_id,
+                scene_number=scene.scene_number,
+                order_index=element.order_index,
+            )
+            element.audio_file_path = rel_path
+            generated_count += 1
+            prev_parenthetical = None
+
+    db.commit()
+
+    return GenerateAudioResponse(
+        script_id=script_id,
+        total_dialogues=total_dialogues,
+        generated_count=generated_count,
+        status="completed",
+    )
+
+
+@router.get(
+    "/scripts/{script_id}/audio-status",
+    response_model=AudioStatusResponse,
+)
+async def audio_status(script_id: int, db: Session = Depends(get_db)):
+    _get_script_or_404(script_id, db)
+
+    dialogue_elements = (
+        db.query(ScriptElement)
+        .join(Scene, ScriptElement.scene_id == Scene.id)
+        .filter(Scene.script_id == script_id, ScriptElement.element_type == "DIALOGUE")
+        .all()
+    )
+
+    total = len(dialogue_elements)
+    with_audio = sum(1 for e in dialogue_elements if e.audio_file_path)
+
+    if total == 0:
+        status = "completed"
+    elif with_audio == 0:
+        status = "pending"
+    elif with_audio < total:
+        status = "in_progress"
+    else:
+        status = "completed"
+
+    return AudioStatusResponse(
+        script_id=script_id,
+        total_dialogues=total,
+        with_audio=with_audio,
+        status=status,
+    )
+
+
+@router.get(
+    "/scripts/{script_id}/playlist",
+    response_model=PlaylistResponse,
+)
+async def playlist(script_id: int, db: Session = Depends(get_db)):
+    script = _get_script_or_404(script_id, db)
+
+    items: list[PlaylistItem] = []
+    for scene in script.scenes:
+        for element in scene.elements:
+            if element.element_type != "DIALOGUE":
+                continue
+
+            audio_url = None
+            if element.audio_file_path:
+                audio_url = f"/api/v1/audio/{element.audio_file_path}"
+
+            items.append(PlaylistItem(
+                element_id=element.id,
+                scene_id=scene.id,
+                scene_number=scene.scene_number,
+                order_index=element.order_index,
+                type=element.element_type,
+                character_name=element.character_name,
+                text=element.text[:120],
+                audio_url=audio_url,
+            ))
+
+    return PlaylistResponse(script_id=script_id, items=items)
+
+
+# ------------------------------------------------------------------
+# Static audio file serving
+# ------------------------------------------------------------------
+
+
+@router.get("/audio/{file_path:path}")
+async def serve_audio(file_path: str):
+    full_path = settings.audio_dir / file_path
+    if not full_path.is_file():
+        raise HTTPException(status_code=404, detail="Audio-Datei nicht gefunden.")
+    return FileResponse(full_path, media_type="audio/mpeg")

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
+import ScriptAudioPanel from "../components/ScriptAudioPanel";
 import api from "../services/api";
 import type { ScriptDetail, SceneData, ScriptElement } from "../types";
 
@@ -170,10 +171,12 @@ function ScriptViewPage() {
         ))}
       </section>
 
-      {/* Right: Character list */}
+      {/* Right: Audio panel + Character list */}
       <aside className="hidden w-52 shrink-0 xl:block">
-        <div className="sticky top-16 ml-6 max-h-[calc(100vh-5rem)] overflow-y-auto">
-          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-secondary-text">
+        <div className="sticky top-16 ml-6 max-h-[calc(100vh-5rem)] overflow-y-auto space-y-6">
+          <ScriptAudioPanel scriptId={script.id} />
+
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">
             Charaktere
           </h2>
           <div className="space-y-1">
