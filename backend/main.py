@@ -15,3 +15,8 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix=settings.api_prefix)
+
+
+@app.get("/")
+async def root():
+    return {"app": "Dialog Hero", "docs": "/docs", "health": "/api/v1/health"}
