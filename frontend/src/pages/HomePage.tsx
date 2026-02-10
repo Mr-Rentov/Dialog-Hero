@@ -1,6 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import Button from "../components/ui/Button";
 
 function HomePage() {
+  const navigate = useNavigate();
+
   return (
     <div className="flex min-h-[calc(100vh-3rem)] flex-col items-center justify-center px-6">
       <div className="text-center">
@@ -11,7 +14,9 @@ function HomePage() {
           Lade dein Drehbuch hoch und starte die Analyse.
         </p>
         <div className="mt-10">
-          <Button>Drehbuch hochladen</Button>
+          <Button onClick={() => navigate("/upload")}>
+            Drehbuch hochladen
+          </Button>
         </div>
       </div>
     </div>
