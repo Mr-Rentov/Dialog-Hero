@@ -12,17 +12,15 @@ Dialog Hero is a web application for managing and working with dialogue scripts 
 - Backend: `cd backend && uvicorn main:app --reload` (Port 8000)
 
 ## Design System / Theme Colors
-- **Primary:** `#2563EB` (Blue 600)
-- **Primary Dark:** `#1D4ED8` (Blue 700)
-- **Secondary:** `#64748B` (Slate 500)
-- **Accent:** `#F59E0B` (Amber 500)
-- **Background:** `#F8FAFC` (Slate 50)
+- **Primary:** `#007AFF` (Apple Blue)
+- **Primary Hover:** `#0063D1`
+- **Background:** `#F5F5F7` (Apple Light Gray)
+- **Foreground:** `#1D1D1F` (Apple Dark)
+- **Secondary Text:** `#86868B` (Apple Gray)
 - **Surface:** `#FFFFFF` (White)
-- **Text Primary:** `#0F172A` (Slate 900)
-- **Text Secondary:** `#475569` (Slate 600)
-- **Border:** `#E2E8F0` (Slate 200)
-- **Success:** `#10B981` (Emerald 500)
-- **Error:** `#EF4444` (Red 500)
+- **Border:** `#D2D2D7` (Apple Border)
+- **Success:** `#34C759` (Apple Green)
+- **Error:** `#FF3B30` (Apple Red)
 
 ## Code Conventions
 - TypeScript strict mode enabled

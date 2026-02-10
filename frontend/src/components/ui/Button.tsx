@@ -11,12 +11,12 @@ function Button({
   ...props
 }: ButtonProps) {
   const base =
-    "inline-flex items-center justify-center rounded-lg px-5 py-2.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
+    "inline-flex items-center justify-center rounded-full px-6 py-2.5 text-[15px] font-medium transition-all focus:outline-none focus:ring-2 focus:ring-primary/40 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
 
   const variants = {
-    primary: "bg-primary text-white hover:bg-primary-dark",
+    primary: "bg-primary text-white hover:bg-primary-hover active:scale-[0.98]",
     secondary:
-      "bg-white text-text-primary border border-border hover:bg-slate-50",
+      "bg-surface text-primary border border-border hover:bg-background active:scale-[0.98]",
   };
 
   return (

@@ -3,5 +3,5 @@
 @tailwind utilities;
 
 body {
-  @apply bg-slate-50 text-text-primary antialiased;
+  @apply bg-background text-foreground antialiased;
 }
