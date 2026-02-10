@@ -87,13 +87,15 @@ class AudioStatusResponse(BaseModel):
 
 class PlaylistItem(BaseModel):
     element_id: int
+    script_id: int
     scene_id: int
     scene_number: int
+    element_type: str
     order_index: int
-    type: str
     character_name: str | None
     text: str
     audio_url: str | None
+    is_comment: bool
 
     model_config = {"from_attributes": True}
 

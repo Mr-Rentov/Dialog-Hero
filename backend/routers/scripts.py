@@ -1,7 +1,8 @@
 import io
 import logging
+import tempfile
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -240,6 +241,9 @@ async def audio_status(script_id: int, db: Session = Depends(get_db)):
     )
 
 
+_COMMENT_TYPES = {"ACTION", "SCENE_HEADING", "PARENTHETICAL", "TRANSITION"}
+
+
 @router.get(
     "/scripts/{script_id}/playlist",
     response_model=PlaylistResponse,
@@ -250,25 +254,102 @@ async def playlist(script_id: int, db: Session = Depends(get_db)):
     items: list[PlaylistItem] = []
     for scene in script.scenes:
         for element in scene.elements:
-            if element.element_type != "DIALOGUE":
-                continue
-
             audio_url = None
             if element.audio_file_path:
                 audio_url = f"/api/v1/audio/{element.audio_file_path}"
 
             items.append(PlaylistItem(
                 element_id=element.id,
+                script_id=script_id,
                 scene_id=scene.id,
                 scene_number=scene.scene_number,
+                element_type=element.element_type,
                 order_index=element.order_index,
-                type=element.element_type,
                 character_name=element.character_name,
                 text=element.text[:120],
                 audio_url=audio_url,
+                is_comment=element.element_type in _COMMENT_TYPES,
             ))
 
     return PlaylistResponse(script_id=script_id, items=items)
+
+
+# ------------------------------------------------------------------
+# Download stitched MP3
+# ------------------------------------------------------------------
+
+
+@router.get("/scripts/{script_id}/download")
+async def download_audio(
+    script_id: int,
+    scope: str = Query("full", pattern="^(full|scene)$"),
+    scene_id: int | None = Query(None),
+    db: Session = Depends(get_db),
+):
+    """Stitch all audio segments into a single MP3 for download."""
+    from pydub import AudioSegment
+
+    script = _get_script_or_404(script_id, db)
+
+    # Determine which scenes to include
+    if scope == "scene":
+        if scene_id is None:
+            raise HTTPException(status_code=400, detail="scene_id ist erforderlich bei scope=scene.")
+        target_scene = db.query(Scene).filter(Scene.id == scene_id, Scene.script_id == script_id).first()
+        if not target_scene:
+            raise HTTPException(status_code=404, detail="Szene nicht gefunden.")
+        scenes = [target_scene]
+    else:
+        scenes = sorted(script.scenes, key=lambda s: s.order_index)
+
+    # Collect audio file paths in order
+    audio_paths: list[tuple[str, bool]] = []  # (abs_path, is_new_scene)
+    for idx, scene in enumerate(scenes):
+        first_in_scene = True
+        for element in sorted(scene.elements, key=lambda e: e.order_index):
+            if not element.audio_file_path:
+                continue
+            abs_path = settings.audio_dir / element.audio_file_path.replace("audio/", "", 1)
+            if abs_path.is_file():
+                audio_paths.append((str(abs_path), first_in_scene and idx > 0))
+                first_in_scene = False
+
+    if not audio_paths:
+        raise HTTPException(
+            status_code=409,
+            detail="Noch kein Audio generiert. Bitte zuerst Audio generieren.",
+        )
+
+    # Stitch audio with pauses
+    silence_dialog = AudioSegment.silent(duration=300)
+    silence_scene = AudioSegment.silent(duration=1000)
+
+    combined = AudioSegment.empty()
+    for abs_path, is_new_scene in audio_paths:
+        if len(combined) > 0:
+            combined += silence_scene if is_new_scene else silence_dialog
+        try:
+            segment = AudioSegment.from_file(abs_path, format="mp3")
+            combined += segment
+        except Exception:
+            # Skip unreadable files (e.g. dummy stubs)
+            combined += AudioSegment.silent(duration=500)
+
+    # Export to temp file
+    tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
+    combined.export(tmp.name, format="mp3")
+
+    if scope == "scene" and scenes:
+        filename = f"dialog-hero-script-{script_id}-scene-{scenes[0].scene_number}.mp3"
+    else:
+        filename = f"dialog-hero-script-{script_id}.mp3"
+
+    return FileResponse(
+        tmp.name,
+        media_type="audio/mpeg",
+        filename=filename,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ------------------------------------------------------------------

@@ -4,9 +4,10 @@ import type { AudioStatusResponse, GenerateAudioResponse } from "../types";
 
 interface Props {
   scriptId: number;
+  onAudioStatusChange?: (status: AudioStatusResponse) => void;
 }
 
-function ScriptAudioPanel({ scriptId }: Props) {
+function ScriptAudioPanel({ scriptId, onAudioStatusChange }: Props) {
   const [status, setStatus] = useState<AudioStatusResponse | null>(null);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,11 +21,14 @@ function ScriptAudioPanel({ scriptId }: Props) {
   const fetchStatus = useCallback(() => {
     api
       .get<AudioStatusResponse>(`/scripts/${scriptId}/audio-status`)
-      .then((res) => setStatus(res.data))
+      .then((res) => {
+        setStatus(res.data);
+        onAudioStatusChange?.(res.data);
+      })
       .catch(() => {
         /* silent – status is optional info */
       });
-  }, [scriptId]);
+  }, [scriptId, onAudioStatusChange]);
 
   useEffect(() => {
     fetchStatus();
@@ -69,7 +73,8 @@ function ScriptAudioPanel({ scriptId }: Props) {
   // Render
   // -----------------------------------------------------------
 
-  const isCompleted = status?.status === "completed" && (status.total_dialogues ?? 0) > 0;
+  const isCompleted =
+    status?.status === "completed" && (status.total_dialogues ?? 0) > 0;
 
   return (
     <div className="rounded-xl border border-border/40 bg-surface p-5">
@@ -144,18 +149,9 @@ function ScriptAudioPanel({ scriptId }: Props) {
       )}
 
       {/* Messages */}
-      {error && (
-        <p className="mt-3 text-[13px] text-error">{error}</p>
-      )}
+      {error && <p className="mt-3 text-[13px] text-error">{error}</p>}
       {successMsg && !error && (
         <p className="mt-3 text-[13px] text-success">{successMsg}</p>
-      )}
-
-      {/* Placeholder for future player */}
-      {isCompleted && (
-        <div className="mt-4 rounded-lg border border-dashed border-border p-4 text-center text-[12px] text-secondary-text">
-          Audio-Player kommt in Phase 4
-        </div>
       )}
     </div>
   );

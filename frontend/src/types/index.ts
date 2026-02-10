@@ -70,13 +70,15 @@ export interface AudioStatusResponse {
 
 export interface PlaylistItem {
   element_id: number;
+  script_id: number;
   scene_id: number;
   scene_number: number;
+  element_type: string;
   order_index: number;
-  type: string;
   character_name: string | null;
   text: string;
   audio_url: string | null;
+  is_comment: boolean;
 }
 
 export interface PlaylistResponse {
