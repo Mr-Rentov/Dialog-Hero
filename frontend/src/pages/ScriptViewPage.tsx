@@ -149,6 +149,14 @@ function ScriptViewPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
+      {/* Audio generation panel – always visible */}
+      <div className="mb-6">
+        <ScriptAudioPanel
+          scriptId={script.id}
+          onAudioStatusChange={handleAudioStatusChange}
+        />
+      </div>
+
       <div className="flex gap-0">
         {/* Left: Scene list */}
         <aside className="hidden w-56 shrink-0 lg:block">
@@ -188,14 +196,9 @@ function ScriptViewPage() {
           ))}
         </section>
 
-        {/* Right: Audio panel + Character list */}
+        {/* Right: Character list */}
         <aside className="hidden w-52 shrink-0 xl:block">
           <div className="sticky top-16 ml-6 max-h-[calc(100vh-5rem)] space-y-6 overflow-y-auto">
-            <ScriptAudioPanel
-              scriptId={script.id}
-              onAudioStatusChange={handleAudioStatusChange}
-            />
-
             <h2 className="text-xs font-semibold uppercase tracking-wider text-secondary-text">
               Charaktere
             </h2>
