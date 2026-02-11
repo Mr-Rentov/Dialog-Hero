@@ -17,6 +17,8 @@ from schemas.script import (
     ScriptDetailResponse,
     UploadResponse,
 )
+from models.user import User
+from services.auth_service import get_current_user
 from services.mood_analyzer import MoodAnalyzer
 from services.pdf_parser import parse_script_from_pdf
 from services.tts_service import ChatterboxService, TTSError
@@ -32,7 +34,11 @@ router = APIRouter()
 
 
 @router.post("/scripts/upload", response_model=UploadResponse)
-async def upload_script(file: UploadFile, db: Session = Depends(get_db)):
+async def upload_script(
+    file: UploadFile,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Nur PDF-Dateien sind erlaubt.")
 
@@ -49,6 +55,7 @@ async def upload_script(file: UploadFile, db: Session = Depends(get_db)):
         )
 
     script = Script(
+        owner_id=current_user.id,
         filename=file.filename,
         title=parsed.title,
         total_scenes=len(parsed.scenes),

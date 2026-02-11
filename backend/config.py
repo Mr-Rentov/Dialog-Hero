@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     chb_base_url: str = "http://localhost:4123/v1/audio/speech"
     audio_dir: Path = Path("audio")
 
+    # JWT Authentication
+    jwt_secret_key: str = "dev-secret-change-in-production"
+    jwt_algorithm: str = "HS256"
+    jwt_expires_minutes: int = 120
+
     model_config = {"env_prefix": "DH_"}
 
 

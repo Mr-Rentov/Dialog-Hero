@@ -3,8 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from database import Base, engine
-from routers import health
-from routers import scripts
+from routers import auth, health, scripts
 
 Base.metadata.create_all(bind=engine)
 
@@ -19,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix=settings.api_prefix)
+app.include_router(auth.router, prefix=settings.api_prefix)
 app.include_router(scripts.router, prefix=settings.api_prefix)
 
 
