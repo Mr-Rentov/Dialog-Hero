@@ -37,7 +37,7 @@ function PlayerControls({
       params.set("scene_id", String(currentSceneId));
     }
     window.open(
-      `http://localhost:8000/api/v1/scripts/${scriptId}/download?${params}`,
+      `/api/v1/scripts/${scriptId}/download?${params}`,
       "_blank"
     );
   };

@@ -32,7 +32,7 @@ export interface ScriptPlayerActions {
   setIncludeComments: (include: boolean) => void;
 }
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "";
 
 function estimateDurationMs(text: string): number {
   return Math.max(1500, text.length * 60);
