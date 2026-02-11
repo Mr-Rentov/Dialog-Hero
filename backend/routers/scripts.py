@@ -329,7 +329,8 @@ async def download_audio(
         if len(combined) > 0:
             combined += silence_scene if is_new_scene else silence_dialog
         try:
-            segment = AudioSegment.from_file(abs_path, format="mp3")
+            fmt = "wav" if abs_path.endswith(".wav") else "mp3"
+            segment = AudioSegment.from_file(abs_path, format=fmt)
             combined += segment
         except Exception:
             # Skip unreadable files (e.g. dummy stubs)
@@ -362,4 +363,5 @@ async def serve_audio(file_path: str):
     full_path = settings.audio_dir / file_path
     if not full_path.is_file():
         raise HTTPException(status_code=404, detail="Audio-Datei nicht gefunden.")
-    return FileResponse(full_path, media_type="audio/mpeg")
+    media_type = "audio/wav" if file_path.endswith(".wav") else "audio/mpeg"
+    return FileResponse(full_path, media_type=media_type)

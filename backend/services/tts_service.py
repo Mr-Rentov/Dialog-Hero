@@ -1,4 +1,3 @@
-import hashlib
 import logging
 from pathlib import Path
 
@@ -137,19 +136,36 @@ class ChatterboxService:
 
     @staticmethod
     def _dummy_audio(text: str, voice: str) -> bytes:
-        """Return a tiny valid MP3 frame so files are non-empty.
+        """Generate a valid silent WAV whose duration matches the text length.
 
-        The content is deterministic based on text+voice so repeated calls
-        produce identical output (useful for testing).
+        Creates a real, browser-playable audio file so the player flow
+        can be tested without a running TTS server or ffmpeg.
+        Duration heuristic: ~60 ms per character, minimum 1 second.
         """
-        # Minimal valid MP3 frame (MPEG1 Layer3, 128kbps, 44100Hz, silence)
-        mp3_header = bytes([
-            0xFF, 0xFB, 0x90, 0x00,  # MP3 sync + header
-        ])
-        # Pad with zeros to form a valid-ish frame (~417 bytes for 128kbps)
-        tag = hashlib.md5(f"{voice}:{text}".encode()).digest()
-        frame_data = tag + b"\x00" * (417 - len(mp3_header) - len(tag))
-        return mp3_header + frame_data
+        import io
+        import math
+        import struct
+        import wave
+
+        duration_ms = max(1000, len(text) * 60)
+        sample_rate = 22050
+        num_samples = int(sample_rate * duration_ms / 1000)
+
+        # Generate a very quiet 440 Hz sine tone (amplitude ~300 out of 32767)
+        amplitude = 300
+        samples = bytes()
+        for i in range(num_samples):
+            value = int(amplitude * math.sin(2 * math.pi * 440 * i / sample_rate))
+            samples += struct.pack("<h", value)
+
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(samples)
+
+        return buf.getvalue()
 
     # ------------------------------------------------------------------
     # File storage helper
@@ -167,7 +183,7 @@ class ChatterboxService:
         abs_dir = settings.audio_dir / str(script_id) / str(scene_number)
         abs_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = f"dialog_{order_index}.mp3"
+        filename = f"dialog_{order_index}.wav"
         (abs_dir / filename).write_bytes(audio_data)
 
         return str(rel_dir / filename)
