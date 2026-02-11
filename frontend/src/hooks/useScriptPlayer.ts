@@ -180,11 +180,13 @@ export function useScriptPlayer(scriptId: string): ScriptPlayerState & ScriptPla
 
   // ── Controls ──
   const play = useCallback(() => {
+    isPlayingRef.current = true;
     setIsPlaying(true);
     playSegment(currentIndex);
   }, [currentIndex, playSegment]);
 
   const pause = useCallback(() => {
+    isPlayingRef.current = false;
     setIsPlaying(false);
     if (audioRef.current) {
       audioRef.current.pause();
@@ -207,27 +209,27 @@ export function useScriptPlayer(scriptId: string): ScriptPlayerState & ScriptPla
   const playNext = useCallback(() => {
     const next = Math.min(currentIndex + 1, filtered.length - 1);
     setCurrentIndex(next);
-    if (isPlaying) {
+    if (isPlayingRef.current) {
       playSegment(next);
     }
-  }, [currentIndex, filtered.length, isPlaying, playSegment]);
+  }, [currentIndex, filtered.length, playSegment]);
 
   const playPrevious = useCallback(() => {
     const prev = Math.max(currentIndex - 1, 0);
     setCurrentIndex(prev);
-    if (isPlaying) {
+    if (isPlayingRef.current) {
       playSegment(prev);
     }
-  }, [currentIndex, isPlaying, playSegment]);
+  }, [currentIndex, playSegment]);
 
   const jumpTo = useCallback(
     (index: number) => {
       setCurrentIndex(index);
-      if (isPlaying) {
+      if (isPlayingRef.current) {
         playSegment(index);
       }
     },
-    [isPlaying, playSegment]
+    [playSegment]
   );
 
   const setMyRole = useCallback((name: string | null) => {
