@@ -37,7 +37,8 @@ router = APIRouter()
 async def upload_script(
     file: UploadFile,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    # TODO: Auth wieder aktivieren
+    # current_user: User = Depends(get_current_user),
 ):
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Nur PDF-Dateien sind erlaubt.")
@@ -55,7 +56,7 @@ async def upload_script(
         )
 
     script = Script(
-        owner_id=current_user.id,
+        # owner_id=current_user.id,  # TODO: Auth wieder aktivieren
         filename=file.filename,
         title=parsed.title,
         total_scenes=len(parsed.scenes),
